@@ -6,7 +6,7 @@ from fastapi.responses import JSONResponse
 from backend.query_router import router as query_router
 from backend.router import router as data_router
 from utils.logger import logger
-from controller.router import predict_router
+from controller.predictor import predict_router
 
 # ✅ Ensure required folders exist before app runs
 required_folders = [
