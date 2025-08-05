@@ -4,6 +4,7 @@ from fastapi import APIRouter, UploadFile, File, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import Optional
+from controller.predictor import predict_from_file
 from data_engine.sql_agent import NL2SQLAgent
 from controller.upload_pipeline import process_uploaded_file
 
@@ -132,3 +133,19 @@ def debug_db(db_path: str):
     except Exception as e:
         return {"status": "error", "error": str(e)}
         
+
+predict_router = APIRouter()
+
+@predict_router.post("/predict/")
+async def predict_endpoint(file: UploadFile = File(...), target_col: Optional[str] = None):
+    df = parse_file(file)
+    predictions, metadata = predict_from_file(df, target_col)
+    return {
+        "status": "success",
+        "metrics": metadata["metrics"],
+        "summary": metadata["model_summary"],
+        "target_column": metadata["target_column"],
+        "problem_type": metadata["problem_type"],
+        "explanation": metadata["explanation"],
+        "predictions_sample": predictions.head(10).to_dict(orient="records")
+    }
