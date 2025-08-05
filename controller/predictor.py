@@ -1,5 +1,8 @@
 import pandas as pd
+from fastapi import APIRouter
 import numpy as np
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 from typing import Optional, Tuple, Dict
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, LabelEncoder
@@ -8,6 +11,11 @@ from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 import shap
 from utils.logger import logger
 
+predict_router = APIRouter()
+
+class PredictionInput(BaseModel):
+    feature1: float
+    feature2: float
 
 def preprocess_data(df: pd.DataFrame, target_col: str) -> Tuple[pd.DataFrame, pd.Series, dict]:
     logger.info("Preprocessing data...")
@@ -126,3 +134,6 @@ def predict_from_file(df: pd.DataFrame, target_col: Optional[str] = None) -> Tup
         "problem_type": result["problem_type"]
       }
   
+@predict_router.post("/predict")
+def predict_endpoint():
+    return {"message": "Prediction endpoint working!"}
