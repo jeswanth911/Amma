@@ -1,42 +1,33 @@
-# Core Data
 pandas
-numpy
-scikit-learn
-scipy
-shap
-matplotlib
-
-# File Parsers
 openpyxl
 pyarrow
 pdfplumber
 PyMuPDF
-xlrd
 lxml
 xmltodict
 beautifulsoup4
 hl7
-eml_parser
-chardet
-
-# FastAPI Backend
+colorlog
 fastapi
 uvicorn
 python-multipart
 sqlalchemy
-pydantic
-python-dotenv
-
-# Logging & Utilities
-colorlog
 python-json-logger
-loguru
-tqdm
-tabulate
+PyPDF2>=3.0.1
+scipy
 requests
-
-# AI / LLM
+xlrd
+eml_parser              
+loguru                  
+tqdm                    
+tabulate                
+faiss-cpu               
+pydantic                
 openai
-faiss-cpu
-# Optional: only keep if actually used
-# PyPDF2>=3.0.1
+chardet
+python-dotenv
+shap
+scikit-learn
+pandas
+numpy
+matplotlib
