@@ -62,6 +62,7 @@ async def log_requests(request: Request, call_next):
 app.include_router(data_router, prefix="/api", tags=["Data Ingestion"])
 app.include_router(query_router)  # /api/ask
 app.include_router(predict_router, prefix="/api", tags=["Prediction"])
+app.include_router(data_router, prefix="/data", tags=["Data Ingestion"])
 
 # ✅ Local Run Entrypoint
 if __name__ == "__main__":
