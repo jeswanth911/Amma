@@ -6,6 +6,7 @@ from fastapi.responses import JSONResponse
 from backend.query_router import router as query_router
 from backend.router import router as data_router
 from utils.logger import logger
+from controller.router import predict_router
 
 # ✅ Ensure required folders exist before app runs
 required_folders = [
@@ -60,6 +61,7 @@ async def log_requests(request: Request, call_next):
 # ✅ Add Router
 app.include_router(data_router, prefix="/api", tags=["Data Ingestion"])
 app.include_router(query_router)  # /api/ask
+app.include_router(predict_router, prefix="/api", tags=["Prediction"])
 
 # ✅ Local Run Entrypoint
 if __name__ == "__main__":
