@@ -136,15 +136,25 @@ def parse_txt(file_path: str) -> pd.DataFrame:
         logger.error(f"❌ TXT parse error: {e}")
         return pd.DataFrame()
 
-def parse_xml(file_path: str) -> pd.DataFrame:
+def parse_xml_file(file_path: str) -> pd.DataFrame:
     try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            xml_data = f.read()
-        dict_data = xmltodict.parse(xml_data)
-        return pd.json_normalize(dict_data)
+        tree = ET.parse(file_path)
+        root = tree.getroot()
+
+        # Flatten the XML tree into a list of dictionaries
+        records = []
+        for elem in root:
+            record = {}
+            for sub_elem in elem.iter():
+                if sub_elem is not elem:
+                    record[sub_elem.tag] = sub_elem.text
+            records.append(record)
+
+        df = pd.DataFrame(records)
+        return df
     except Exception as e:
-        logger.error(f"❌ XML parse error: {e}")
-        return pd.DataFrame()
+        raise ValueError(f"Error parsing XML file: {e}")
+        
 
 def parse_sql_file(file_path_or_bytes) -> pd.DataFrame:
     """
