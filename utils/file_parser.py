@@ -146,20 +146,30 @@ def parse_xml(file_path: str) -> pd.DataFrame:
         logger.error(f"❌ XML parse error: {e}")
         return pd.DataFrame()
 
-def parse_sql(file_path: str) -> pd.DataFrame:
-    try:
-        conn = sqlite3.connect(":memory:")
-        with open(file_path, 'r', encoding='utf-8') as f:
-            sql_script = f.read()
-        conn.executescript(sql_script)
-        tables = pd.read_sql("SELECT name FROM sqlite_master WHERE type='table';", conn)
-        if tables.empty:
-            raise ValueError("No tables found in SQL.")
-        table_name = tables.iloc[0]['name']
-        return pd.read_sql(f"SELECT * FROM {table_name}", conn)
-    except Exception as e:
-        logger.error(f"❌ SQL parse error: {e}")
-        return pd.DataFrame()
+def parse_sql_file(file_path_or_bytes) -> pd.DataFrame:
+    """
+    Parses a .sql file with INSERT statements and returns a pandas DataFrame.
+    """
+    import re
+
+    if isinstance(file_path_or_bytes, bytes):
+        content = file_path_or_bytes.decode("utf-8")
+    else:
+        with open(file_path_or_bytes, "r", encoding="utf-8") as f:
+            content = f.read()
+
+    # Extract INSERT INTO values
+    insert_values = re.findall(r"INSERT INTO .*? VALUES\s*(\(.*?\));", content, re.DOTALL)
+
+    if not insert_values:
+        raise ValueError("No INSERT INTO statements found in SQL file")
+
+    # Extract tuples
+    records = [eval(val) for val in insert_values]  # Caution: eval should be sandboxed in real systems
+    df = pd.DataFrame(records)
+
+    return df
+    
 
 def parse_log(file_path: str) -> pd.DataFrame:
     try:
