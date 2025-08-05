@@ -18,6 +18,11 @@ from utils.file_parser import (
     parse_pdf_file,
     parse_log_file,
     parse_eml_file,
+    parse_csv_file,
+    parse_excel_file,
+    parse_json_file,
+    parse_parquet_file,
+    parse_text_file,
 )
 
 # Ensure folders
