@@ -7,6 +7,7 @@ from typing import Optional
 from controller.predictor import predict_from_file
 from data_engine.sql_agent import NL2SQLAgent
 from controller.upload_pipeline import process_uploaded_file
+from controller.workflow_manager import run_full_workflow
 
 from utils.logger import logger
 from utils.file_parser import save_uploaded_file
@@ -149,3 +150,14 @@ async def predict_endpoint(file: UploadFile = File(...), target_col: Optional[st
         "explanation": metadata["explanation"],
         "predictions_sample": predictions.head(10).to_dict(orient="records")
     }
+
+@router.post("/run-workflow/")
+async def run_workflow_endpoint(file: UploadFile = File(...), question: str = None):
+    # Save file temporarily
+    from utils.file_parser import save_uploaded_file
+    uploaded_path = save_uploaded_file(file)
+
+    # Run full pipeline
+    result = run_full_workflow(uploaded_path, question)
+
+    return result
