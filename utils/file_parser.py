@@ -1,248 +1,220 @@
 import os
-import pandas as pd
-import shutil
-import json
-import sqlite3
 import re
-import xmltodict
-import pdfplumber
-import hl7
+import json
+import shutil
+import sqlite3
 import mimetypes
-import fitz  # PyMuPDF
-import xml.etree.ElementTree as ET
-import pyarrow.parquet as pq
+import xmltodict
+import pandas as pd
 
-from bs4 import BeautifulSoup
+from typing import Optional
 from email import policy
 from email.parser import BytesParser
 from fastapi import UploadFile
-from utils.logger import logger
-from io import BytesIO
-from email import message_from_file
-from PyPDF2 import PdfReader
 
+from utils.logger import logger  # Ensure this exists in your utils/ folder
 
+# Optional imports
+try:
+    import pyarrow.parquet as pq
+except ImportError:
+    pq = None
+
+try:
+    import pdfplumber
+except ImportError:
+    pdfplumber = None
+
+try:
+    import hl7
+except ImportError:
+    hl7 = None
+
+# Supported file formats
 SUPPORTED_FORMATS = [
     ".csv", ".xlsx", ".xls", ".json", ".parquet", ".txt",
     ".xml", ".sql", ".log", ".hl7", ".pdf", ".eml"
 ]
 
+UPLOAD_DIR = "data/uploaded"
 
-UPLOAD_DIR = "data"
+# Save uploaded file to local directory
+def save_uploaded_file(uploaded_file: UploadFile, upload_dir: str = UPLOAD_DIR) -> str:
+    os.makedirs(upload_dir, exist_ok=True)
+    file_path = os.path.join(upload_dir, uploaded_file.filename)
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(uploaded_file.file, buffer)
+    logger.info(f"✅ File saved: {file_path}")
+    return file_path
 
+# Check if file format is supported
 def is_supported_format(file_path: str) -> bool:
     ext = os.path.splitext(file_path)[1].lower()
     return ext in SUPPORTED_FORMATS
 
-def save_uploaded_file(file: UploadFile, destination_folder: str = "data/uploaded") -> str:
-    os.makedirs(destination_folder, exist_ok=True)
-    file_path = os.path.join(destination_folder, file.filename)
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-    return file_path
-
-def parse_file(file_path: str) -> pd.DataFrame:
-    """
-    Parse supported file formats into a Pandas DataFrame.
-    Supported: .csv, .xlsx, .xls, .json, .parquet, .txt, .xml
-    """
-    ext = os.path.splitext(file_path)[1].lower()
-
-    try:
-        if ext == ".csv":
-            return pd.read_csv(file_path, encoding="utf-8", errors="replace")
-
-        elif ext in [".xlsx", ".xls"]:
-            return pd.read_excel(file_path)
-
-        elif ext == ".json":
-            with open(file_path, "r", encoding="utf-8", errors="replace") as f:
-                data = json.load(f)
-            return pd.json_normalize(data)
-
-        elif ext == ".parquet":
-            return pd.read_parquet(file_path)
-
-        elif ext == ".txt":
-            return pd.read_csv(file_path, delimiter="\t", encoding="utf-8", errors="replace")
-
-        elif ext == ".xml":
-            tree = ET.parse(file_path)
-            root = tree.getroot()
-            data = [
-                {elem.tag: elem.text for elem in child}
-                for child in root
-            ]
-            return pd.DataFrame(data)
-
-        else:
-            raise ValueError(f"Unsupported file format: {ext}")
-
-    except Exception as e:
-        raise RuntimeError(f"Failed to parse file '{file_path}': {str(e)}")
-                
-        
-
-def parse_file_to_df(file_path: str) -> pd.DataFrame:
-    ext = os.path.splitext(file_path)[1].lower()
-
-    if ext == ".csv":
-        return pd.read_csv(file_path)
-    elif ext in [".xlsx", ".xls"]:
-        return pd.read_excel(file_path)
-    elif ext == ".json":
-        with open(file_path, 'r') as f:
-            data = json.load(f)
-        return pd.json_normalize(data)
-    elif ext == ".txt":
-        return pd.read_csv(file_path, delimiter="\t", engine='python')
-    elif ext == ".parquet":
-        return pd.read_parquet(file_path)
-    elif ext == ".xml":
-        return pd.read_xml(file_path)
-    elif ext == ".log":
-        return pd.read_csv(file_path, delimiter="\t", engine='python', error_bad_lines=False)
-    elif ext == ".sql":
-        with open(file_path, "r") as f:
-            sql_script = f.read()
-        return pd.DataFrame({"sql": [sql_script]})
-    elif ext == ".pdf":
-        from PyPDF2 import PdfReader
-        reader = PdfReader(file_path)
-        text = "\n".join([page.extract_text() for page in reader.pages])
-        return pd.DataFrame({"text": [text]})
-    elif ext == ".eml":
-        from email import message_from_file
-        with open(file_path, 'r') as f:
-            msg = message_from_file(f)
-        return pd.DataFrame({"subject": [msg["subject"]], "body": [msg.get_payload()]})
-    elif ext == ".hl7":
-        with open(file_path, "r") as f:
-            hl7_raw = f.read()
-        segments = hl7_raw.strip().split('\n')
-        data = {seg.split("|")[0]: seg for seg in segments}
-        return pd.DataFrame([data])
-    else:
-        raise ValueError(f"❌ Unsupported file format: {ext}")
-        
-            
-            
-def save_uploaded_file(file: UploadFile, destination_folder: str = "data/uploaded") -> str:
-    os.makedirs(destination_folder, exist_ok=True)
-    file_path = os.path.join(destination_folder, file.filename)
-
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-
-    return file_path
-
-def validate_file_format(filename: str) -> bool:
-    ext = os.path.splitext(filename)[1].lower()
-    return ext in SUPPORTED_EXTENSIONS
-
-
+# Detect MIME/file type
 def detect_file_format(file_path: str) -> str:
     ext = os.path.splitext(file_path)[1].lower()
-    if ext in SUPPORTED_EXTENSIONS:
+    if ext in SUPPORTED_FORMATS:
         return ext
     mime_type, _ = mimetypes.guess_type(file_path)
     return mime_type or "unknown"
 
-def parse_sql_file(file_path: str) -> pd.DataFrame:
-    """
-    Dummy parser for SQL file input. Needs manual schema logic or SQLAlchemy integration.
-    """
-    with open(file_path, "r") as f:
-        sql_query = f.read()
-
-    # For now, just return the query as a 1-row DataFrame for placeholder
-    return pd.DataFrame({"sql_query": [sql_query]})
-
-def parse_xml_file(file_path: str) -> pd.DataFrame:
-    with open(file_path, "r") as f:
-        xml_content = f.read()
-    return pd.DataFrame({"xml_data": [xml_content]})
-
-def parse_hl7_file(file_path: str) -> pd.DataFrame:
-    with open(file_path, "r") as f:
-        hl7_content = f.read()
-    return pd.DataFrame({"hl7_data": [hl7_content]})
-
-def parse_pdf_file(file_path: str) -> pd.DataFrame:
-    with open(file_path, "rb") as f:
-        content = f.read()
-    return pd.DataFrame({"pdf_binary": [content]})
-
-def parse_log_file(file_path: str) -> pd.DataFrame:
-    with open(file_path, "r") as f:
-        lines = f.readlines()
-    return pd.DataFrame({"log_lines": lines})
-
-def parse_eml_file(file_path: str) -> pd.DataFrame:
-    with open(file_path, "r") as f:
-        email_content = f.read()
-    return pd.DataFrame({"email_text": [email_content]})
-
-
-
-def parse_file(file_path: str) -> dict:
-    try:
-        ext = file_path.lower().split('.')[-1]
-
-        if ext == 'csv':
-            try:
-                df = pd.read_csv(file_path, encoding="utf-8")
-            except UnicodeDecodeError:
-                df = pd.read_csv(file_path, encoding="latin1")  # 👈 fallback for broken utf-8
-
-        elif ext in ['xls', 'xlsx']:
-            df = pd.read_excel(file_path)
-        elif ext == 'json':
-            df = pd.read_json(file_path)
-        elif ext == 'parquet':
-            df = pd.read_parquet(file_path)
-        elif ext == 'txt':
-            df = pd.read_csv(file_path, delimiter="\t", encoding="utf-8")
-        else:
-            return {
-                "status": "error",
-                "error": f"Unsupported file format: {ext}",
-                "dataframe": None
-            }
-
-        return {
-            "status": "success",
-            "dataframe": df,
-            "file_path": file_path
-        }
-
-    except Exception as e:
-        return {
-            "status": "error",
-            "error": f"File parsing failed: {str(e)}",
-            "dataframe": None
-        }
-
-
+# Entry point: Parse any supported file to DataFrame
 def parse_file(file_path: str) -> pd.DataFrame:
     ext = os.path.splitext(file_path)[1].lower()
 
-    if ext == ".csv":
-        return pd.read_csv(file_path)
-    elif ext in [".xlsx", ".xls"]:
+    try:
+        if ext == '.csv':
+            return parse_csv(file_path)
+        elif ext in ['.xls', '.xlsx']:
+            return parse_excel(file_path)
+        elif ext == '.json':
+            return parse_json(file_path)
+        elif ext == '.parquet':
+            return parse_parquet(file_path)
+        elif ext == '.txt':
+            return parse_txt(file_path)
+        elif ext == '.xml':
+            return parse_xml(file_path)
+        elif ext == '.sql':
+            return parse_sql(file_path)
+        elif ext == '.log':
+            return parse_log(file_path)
+        elif ext == '.hl7':
+            return parse_hl7(file_path)
+        elif ext == '.pdf':
+            return parse_pdf(file_path)
+        elif ext == '.eml':
+            return parse_eml(file_path)
+        else:
+            raise ValueError(f"Unsupported file format: {ext}")
+    except Exception as e:
+        logger.error(f"❌ Failed to parse {file_path}: {str(e)}")
+        return pd.DataFrame()
+
+# Format-specific parsers below ⬇️
+def parse_csv(file_path: str) -> pd.DataFrame:
+    try:
+        return pd.read_csv(file_path, encoding="utf-8", errors="replace")
+    except Exception as e:
+        logger.error(f"❌ CSV parse error: {e}")
+        return pd.DataFrame()
+
+def parse_excel(file_path: str) -> pd.DataFrame:
+    try:
         return pd.read_excel(file_path)
-    elif ext == ".json":
-        with open(file_path, "r", encoding="utf-8") as f:
+    except Exception as e:
+        logger.error(f"❌ Excel parse error: {e}")
+        return pd.DataFrame()
+
+def parse_json(file_path: str) -> pd.DataFrame:
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
         return pd.json_normalize(data)
-    elif ext == ".parquet":
+    except Exception as e:
+        logger.error(f"❌ JSON parse error: {e}")
+        return pd.DataFrame()
+
+def parse_parquet(file_path: str) -> pd.DataFrame:
+    if not pq:
+        logger.error("❌ pyarrow not installed.")
+        return pd.DataFrame()
+    try:
         return pd.read_parquet(file_path)
-    elif ext == ".txt":
-        return pd.read_csv(file_path, delimiter="\t")
-    elif ext == ".xml":
-        tree = ET.parse(file_path)
-        root = tree.getroot()
-        data = [{elem.tag: elem.text for elem in child} for child in root]
-        return pd.DataFrame(data)
-    else:
-        raise ValueError(f"Unsupported file type: {ext}")
+    except Exception as e:
+        logger.error(f"❌ Parquet parse error: {e}")
+        return pd.DataFrame()
+
+def parse_txt(file_path: str) -> pd.DataFrame:
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+        return pd.DataFrame({"line": [line.strip() for line in lines if line.strip()]})
+    except Exception as e:
+        logger.error(f"❌ TXT parse error: {e}")
+        return pd.DataFrame()
+
+def parse_xml(file_path: str) -> pd.DataFrame:
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            xml_data = f.read()
+        dict_data = xmltodict.parse(xml_data)
+        return pd.json_normalize(dict_data)
+    except Exception as e:
+        logger.error(f"❌ XML parse error: {e}")
+        return pd.DataFrame()
+
+def parse_sql(file_path: str) -> pd.DataFrame:
+    try:
+        conn = sqlite3.connect(":memory:")
+        with open(file_path, 'r', encoding='utf-8') as f:
+            sql_script = f.read()
+        conn.executescript(sql_script)
+        tables = pd.read_sql("SELECT name FROM sqlite_master WHERE type='table';", conn)
+        if tables.empty:
+            raise ValueError("No tables found in SQL.")
+        table_name = tables.iloc[0]['name']
+        return pd.read_sql(f"SELECT * FROM {table_name}", conn)
+    except Exception as e:
+        logger.error(f"❌ SQL parse error: {e}")
+        return pd.DataFrame()
+
+def parse_log(file_path: str) -> pd.DataFrame:
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+        pattern = r'^\[?(?P<timestamp>.*?)\]?\s+(?P<level>\w+):\s+(?P<message>.*)$'
+        parsed = [re.match(pattern, line).groupdict() for line in lines if re.match(pattern, line)]
+        return pd.DataFrame(parsed)
+    except Exception as e:
+        logger.error(f"❌ LOG parse error: {e}")
+        return pd.DataFrame()
+
+def parse_hl7(file_path: str) -> pd.DataFrame:
+    if not hl7:
+        logger.error("❌ hl7 library not installed.")
+        return pd.DataFrame()
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            raw = f.read()
+        msg = hl7.parse(raw)
+        rows = [[str(segment[0])] + [str(field) for field in segment[1:]] for segment in msg.segments()]
+        return pd.DataFrame(rows)
+    except Exception as e:
+        logger.error(f"❌ HL7 parse error: {e}")
+        return pd.DataFrame()
+
+def parse_pdf(file_path: str) -> pd.DataFrame:
+    if not pdfplumber:
+        logger.error("❌ pdfplumber not installed.")
+        return pd.DataFrame()
+    try:
+        text = []
+        with pdfplumber.open(file_path) as pdf:
+            for page in pdf.pages:
+                content = page.extract_text()
+                if content:
+                    text.append(content)
+        return pd.DataFrame({'page': list(range(1, len(text) + 1)), 'text': text})
+    except Exception as e:
+        logger.error(f"❌ PDF parse error: {e}")
+        return pd.DataFrame()
+
+def parse_eml(file_path: str) -> pd.DataFrame:
+    try:
+        with open(file_path, 'rb') as f:
+            msg = BytesParser(policy=policy.default).parse(f)
+        content = {
+            "subject": msg["subject"],
+            "from": msg["from"],
+            "to": msg["to"],
+            "date": msg["date"],
+            "body": msg.get_body(preferencelist=('plain', 'html')).get_content() if msg.get_body() else ""
+        }
+        return pd.DataFrame([content])
+    except Exception as e:
+        logger.error(f"❌ EML parse error: {e}")
+        return pd.DataFrame()
+        
