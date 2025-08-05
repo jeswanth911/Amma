@@ -192,19 +192,17 @@ def parse_log(file_path: str) -> pd.DataFrame:
         logger.error(f"❌ LOG parse error: {e}")
         return pd.DataFrame()
 
-def parse_hl7(file_path: str) -> pd.DataFrame:
-    if not hl7:
-        logger.error("❌ hl7 library not installed.")
-        return pd.DataFrame()
+def parse_hl7_file(file_path: str) -> pd.DataFrame:
+    import hl7
+    with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+        hl7_content = f.read()
     try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            raw = f.read()
-        msg = hl7.parse(raw)
-        rows = [[str(segment[0])] + [str(field) for field in segment[1:]] for segment in msg.segments()]
-        return pd.DataFrame(rows)
+        h = hl7.parse(hl7_content)
+        data = [[str(segment[i]) for i in range(len(segment))] for segment in h]
+        return pd.DataFrame(data)
     except Exception as e:
-        logger.error(f"❌ HL7 parse error: {e}")
-        return pd.DataFrame()
+        raise ValueError(f"Failed to parse HL7 file: {e}")
+        
 
 def parse_pdf(file_path: str) -> pd.DataFrame:
     if not pdfplumber:
