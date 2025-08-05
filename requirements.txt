@@ -26,3 +26,8 @@ pydantic
 openai
 chardet
 python-dotenv
+shap
+scikit-learn
+pandas
+numpy
+matplotlib
