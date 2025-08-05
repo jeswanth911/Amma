@@ -5,7 +5,7 @@ from utils.file_parser import parse_file
 from data_engine.cleaner import clean_data_file
 from data_engine.analyzer import analyze_data
 from controller.sqlite_converter import convert_to_sqlite_df
-from data_engine.nl2sql_agent import NL2SQLAgent
+from data_engine.sql_agent import NL2SQLAgent
 from typing import Optional, Dict
 
 def run_full_workflow(file_path: str, question: Optional[str] = None) -> Dict:
