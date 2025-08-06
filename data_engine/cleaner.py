@@ -19,7 +19,6 @@ from utils.file_parser import (
     parse_excel_file,
     parse_json_file,
     parse_parquet_file,
-    parse_text_file,
 )
 
 # Ensure folders
