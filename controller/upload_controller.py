@@ -2,7 +2,7 @@ import os
 import uuid
 from fastapi import APIRouter, UploadFile, File, HTTPException
 from fastapi.responses import JSONResponse
-from controller.upload_pipeline import run_upload_pipeline
+from controller.upload_pipeline import process_uploaded_file
 from utils.file_parser import save_uploaded_file
 from utils.logger import logger
 
