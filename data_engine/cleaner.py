@@ -138,34 +138,34 @@ def generate_cleaning_report(df: pd.DataFrame) -> dict:
 
 def clean_data_file(df: pd.DataFrame, output_path: str) -> pd.DataFrame:
     try:
-        # 1. Drop completely empty columns
+        
         df.dropna(axis=1, how='all', inplace=True)
 
-        # 2. Drop duplicate rows
+        
         df.drop_duplicates(inplace=True)
 
-        # 3. Standardize column names (lowercase, underscores)
+        
         df.columns = [col.strip().lower().replace(" ", "_") for col in df.columns]
 
-        # 4. Fill missing numeric values with median
+        
         numeric_cols = df.select_dtypes(include=[np.number]).columns
         for col in numeric_cols:
             if df[col].isnull().any():
                 median_val = df[col].median()
                 df[col].fillna(median_val, inplace=True)
 
-        # 5. Fill missing categorical values with mode
+        
         categorical_cols = df.select_dtypes(include=['object', 'category']).columns
         for col in categorical_cols:
             if df[col].isnull().any():
                 mode_val = df[col].mode()[0] if not df[col].mode().empty else "Unknown"
                 df[col].fillna(mode_val, inplace=True)
 
-        # 6. Strip whitespace in string columns
+        
         for col in categorical_cols:
             df[col] = df[col].astype(str).str.strip()
 
-        # 7. Save cleaned file to CSV
+        
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
         df.to_csv(output_path, index=False)
 
