@@ -8,6 +8,7 @@ import pandas as pd
 import chardet
 from typing import Tuple, Dict, List
 from scipy.stats import zscore
+from typing import Tuple
 
 from utils.logger import logger
 from utils.file_parser import (
@@ -37,11 +38,21 @@ def detect_encoding(file_path: str) -> str:
     return result['encoding'] or 'utf-8'
 
 
-def normalize_column_names(df: pd.DataFrame) -> List[str]:
-    cleaned = [col.strip().lower().replace(" ", "_") for col in df.columns]
-    df.columns = cleaned
-    return cleaned
-
+def normalize_column_names(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Normalize column names by:
+    - Lowercasing
+    - Replacing spaces/special chars with underscores
+    """
+    df.columns = (
+        df.columns
+        .str.strip()
+        .str.lower()
+        .str.replace(r"[^\w\s]", "", regex=True)
+        .str.replace(r"\s+", "_", regex=True)
+    )
+    return df
+    
 
 def replace_na_like_values(df: pd.DataFrame) -> pd.DataFrame:
     na_values = ["", "na", "n/a", "null", "NULL", "NaN", "-", "--"]
@@ -62,35 +73,63 @@ def detect_outliers(df: pd.DataFrame) -> Dict[str, int]:
 
 
 def clean_dataframe(df: pd.DataFrame) -> pd.DataFrame:
-    try:
-        df.columns = [col.strip().replace("\n", " ") for col in df.columns]
-        df.dropna(axis=0, how="all", inplace=True)
-        df.dropna(axis=1, how="all", inplace=True)
-        df.drop_duplicates(inplace=True)
-        for col in df.select_dtypes(include=["object"]).columns:
-            df[col] = df[col].astype(str).str.strip()
-        df = replace_na_like_values(df)
-        return df
-    except Exception as e:
-        logger.error(f"DataFrame cleaning error: {e}")
-        raise
+    """
+    Main cleaning logic:
+    - Strip strings
+    - Drop completely empty columns
+    - Fill or drop missing values (basic logic)
+    """
+    # Strip string columns
+    for col in df.select_dtypes(include=['object', 'string']).columns:
+        df[col] = df[col].astype(str).str.strip()
 
+    # Drop fully empty columns
+    df.dropna(axis=1, how='all', inplace=True)
 
-def clean_data(input_path: str, output_path: str) -> pd.DataFrame:
+    # Fill missing values for numeric columns
+    for col in df.select_dtypes(include=['number']).columns:
+        df[col] = df[col].fillna(df[col].median())
+
+    # Fill missing values for categorical columns
+    for col in df.select_dtypes(include=['object', 'string']).columns:
+        df[col] = df[col].fillna('unknown')
+
+    return df
+    
+    
+def clean_data(df: pd.DataFrame, output_path: str = None) -> Tuple[pd.DataFrame, str]:
+    """
+    Full cleaning pipeline:
+    - Normalize column names
+    - Clean data
+    - Save cleaned file (optional)
+    Returns:
+        cleaned DataFrame and output path (if saved)
+    """
     try:
-        df = parse_file(input_path)
-        if isinstance(df, dict) and "dataframe" in df:
-            df = df["dataframe"]
         if df is None or df.empty:
-            raise ValueError("Parsed file is empty")
+            raise ValueError("Parsed DataFrame is empty.")
+
+        logger.info(f"✅ Starting cleaning on DataFrame with shape: {df.shape}")
+
+        # Normalize and clean
+        df = normalize_column_names(df)
         df = clean_dataframe(df)
-        df.columns = normalize_column_names(df)
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
-        df.to_csv(output_path, index=False)
-        return df
+
+        # Save if output path provided
+        if output_path:
+            os.makedirs(os.path.dirname(output_path), exist_ok=True)
+            df.to_csv(output_path, index=False)
+            logger.info(f"📁 Cleaned file saved to: {output_path}")
+            return df, output_path
+
+        return df, ""
+
     except Exception as e:
-        logger.error(f"Failed to clean data: {e}")
+        logger.error(f"❌ Failed to clean data: {str(e)}")
         raise
+        
+        
 
 
 def generate_cleaning_report(df: pd.DataFrame) -> dict:
