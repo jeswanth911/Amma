@@ -69,40 +69,43 @@ def parse_file(file_path: str) -> pd.DataFrame:
 
     try:
         if ext == '.csv':
-            return parse_csv(file_path)
+            df = parse_csv(file_path)
         elif ext in ['.xls', '.xlsx']:
-            return parse_excel(file_path)
+            df = parse_excel(file_path)
         elif ext == '.json':
-            return parse_json(file_path)
+            df = parse_json(file_path)
         elif ext == '.parquet':
-            return parse_parquet(file_path)
+            df = parse_parquet(file_path)
         elif ext == '.txt':
-            return parse_txt(file_path)
+            df = parse_txt(file_path)
         elif ext == '.xml':
-            return parse_xml(file_path)
+            df = parse_xml(file_path)
         elif ext == '.sql':
-            return parse_sql(file_path)
+            df = parse_sql(file_path)
         elif ext == '.log':
-            return parse_log(file_path)
+            df = parse_log(file_path)
         elif ext == '.hl7':
-            return parse_hl7(file_path)
+            df = parse_hl7(file_path)
         elif ext == '.pdf':
-            return parse_pdf(file_path)
+            df = parse_pdf(file_path)
         elif ext == '.eml':
-            return parse_eml(file_path)
+            df = parse_eml(file_path)
         else:
             raise ValueError(f"Unsupported file format: {ext}")
+
+        if df is not None and not df.empty:
+            print(f"[DEBUG] Parsed DataFrame shape: {df.shape}, columns: {df.columns.tolist()}")
+        else:
+            print("[DEBUG] Parsed DataFrame is empty")
+
+        return df
+
     except Exception as e:
         logger.error(f"❌ Failed to parse {file_path}: {str(e)}")
         return pd.DataFrame()
-if df is not None:
-    print(f"[DEBUG] Parsed DataFrame shape: {df.shape}, columns: {df.columns.tolist()}")
-else:
-    print("[DEBUG] parse_file() returned None")
-    
-
-
-
+        
+        
+        
 # Format-specific parsers below ⬇️
 def parse_csv(file_path: str) -> pd.DataFrame:
     try:
