@@ -6,6 +6,9 @@ import sqlite3
 import mimetypes
 import xmltodict
 import pandas as pd
+import eml_parser
+import base64
+
 
 from typing import Optional
 from email import policy
@@ -219,19 +222,17 @@ def parse_pdf_file(file_path: str) -> pd.DataFrame:
     
     
 
-def parse_eml(file_path: str) -> pd.DataFrame:
+
+
+def parse_eml_file(file_path: str) -> pd.DataFrame:
     try:
-        with open(file_path, 'rb') as f:
-            msg = BytesParser(policy=policy.default).parse(f)
-        content = {
-            "subject": msg["subject"],
-            "from": msg["from"],
-            "to": msg["to"],
-            "date": msg["date"],
-            "body": msg.get_body(preferencelist=('plain', 'html')).get_content() if msg.get_body() else ""
-        }
-        return pd.DataFrame([content])
+        with open(file_path, "rb") as f:
+            raw_email = f.read()
+        ep = eml_parser.EmlParser()
+        parsed_eml = ep.decode_email_bytes(raw_email)
+        parsed_json = json.dumps(parsed_eml, indent=4, default=str)
+        return pd.json_normalize(parsed_eml)
     except Exception as e:
-        logger.error(f"❌ EML parse error: {e}")
-        return pd.DataFrame()
+        raise ValueError(f"Error parsing EML file: {e}")
+        
         
