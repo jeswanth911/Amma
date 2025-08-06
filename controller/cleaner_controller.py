@@ -2,6 +2,7 @@ from data_engine.cleaner import clean_data
 from utils.file_parser import parse_file
 import os
 from fastapi import APIRouter
+from fastapi import APIRouter, UploadFile, File
 
 router = APIRouter()
 
