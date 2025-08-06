@@ -181,16 +181,15 @@ def parse_sql_file(file_path_or_bytes) -> pd.DataFrame:
     return df
     
 
-def parse_log(file_path: str) -> pd.DataFrame:
+def parse_log_file(file_path: str) -> pd.DataFrame:
     try:
-        with open(file_path, 'r', encoding='utf-8') as f:
+        with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
             lines = f.readlines()
-        pattern = r'^\[?(?P<timestamp>.*?)\]?\s+(?P<level>\w+):\s+(?P<message>.*)$'
-        parsed = [re.match(pattern, line).groupdict() for line in lines if re.match(pattern, line)]
-        return pd.DataFrame(parsed)
+        return pd.DataFrame({"log_line": lines})
     except Exception as e:
-        logger.error(f"❌ LOG parse error: {e}")
-        return pd.DataFrame()
+        raise ValueError(f"Error parsing log file: {e}")
+        
+        
 
 def parse_hl7_file(file_path: str) -> pd.DataFrame:
     import hl7
