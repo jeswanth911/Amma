@@ -49,3 +49,5 @@ async def upload_file(file: UploadFile = File(...)):
         logger.exception(f"Unhandled error during upload: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error during file upload.")
       
+def include_routes(app: FastAPI):
+    app.include_router(upload_router)
