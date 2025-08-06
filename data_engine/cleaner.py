@@ -76,7 +76,8 @@ def clean_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     """
     # Strip string columns
     for col in df.select_dtypes(include=['object', 'string']).columns:
-        df[col] = df[col].astype(str).str.strip()
+        df[col] = df[col].apply(lambda x: str(x).strip() if pd.notnull(x) else x)
+            
 
     # Drop fully empty columns
     df.dropna(axis=1, how='all', inplace=True)
@@ -232,9 +233,4 @@ def save_dataframe_to_sqlite(df: pd.DataFrame, table_name: str = "data", db_path
     conn.close()
     return db_path
 
-def clean_data(df: pd.DataFrame) -> pd.DataFrame:
-    for col in df.select_dtypes(include=['object', 'string']).columns:
-        df[col] = df[col].astype(str).str.strip()
-    df.columns = [col.strip().lower().replace(" ", "_") for col in df.columns]
-    return df
-    
+
