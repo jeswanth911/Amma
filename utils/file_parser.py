@@ -147,6 +147,25 @@ def parse_csv_file(file_path: str) -> pd.DataFrame:
 def parse_excel_file(file_path: str) -> pd.DataFrame:
     """Parse Excel files (.xlsx, .xls)"""
     try:
+        ext = Path(file_path).suffix.lower()
+
+        if ext == ".xlsx":
+            # Use openpyxl engine for .xlsx
+            df = pd.read_excel(file_path, engine="openpyxl")
+        elif ext == ".xls":
+            # Use xlrd engine for .xls
+            df = pd.read_excel(file_path, engine="xlrd")
+        else:
+            raise FileParsingError("Unsupported Excel file extension")
+
+        return df
+
+    except Exception as e:
+        raise FileParsingError(f"Failed to parse Excel file: {str(e)}")
+        
+def parse_excel_file(file_path: str) -> pd.DataFrame:
+    """Parse Excel files (.xlsx, .xls)"""
+    try:
         # Try to read all sheets and combine if multiple sheets exist
         excel_file = pd.ExcelFile(file_path)
         
