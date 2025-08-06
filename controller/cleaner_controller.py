@@ -1,6 +1,9 @@
 from data_engine.cleaner import clean_data
 from utils.file_parser import parse_file
 import os
+from fastapi import APIRouter
+
+router = APIRouter()
 
 def clean_file_pipeline(file_path: str, save_cleaned: bool = True) -> dict:
     try:
