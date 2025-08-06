@@ -204,21 +204,21 @@ def parse_hl7_file(file_path: str) -> pd.DataFrame:
         raise ValueError(f"Failed to parse HL7 file: {e}")
         
 
-def parse_pdf(file_path: str) -> pd.DataFrame:
-    if not pdfplumber:
-        logger.error("❌ pdfplumber not installed.")
-        return pd.DataFrame()
-    try:
-        text = []
-        with pdfplumber.open(file_path) as pdf:
-            for page in pdf.pages:
-                content = page.extract_text()
-                if content:
-                    text.append(content)
-        return pd.DataFrame({'page': list(range(1, len(text) + 1)), 'text': text})
-    except Exception as e:
-        logger.error(f"❌ PDF parse error: {e}")
-        return pd.DataFrame()
+def parse_pdf_file(file_path: str) -> pd.DataFrame:
+    import fitz  # PyMuPDF
+    import pandas as pd
+
+    text = ""
+    with fitz.open(file_path) as doc:
+        for page in doc:
+            text += page.get_text()
+
+    # Example: turn each line into a row
+    lines = text.split('\n')
+    df = pd.DataFrame(lines, columns=["content"])
+    return df
+    
+    
 
 def parse_eml(file_path: str) -> pd.DataFrame:
     try:
