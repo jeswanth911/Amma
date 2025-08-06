@@ -1,4 +1,6 @@
 
+# controller/workflow_controller.py
+
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 from utils.logger import logger
 from utils.file_parser import parse_file
@@ -48,14 +50,22 @@ async def run_workflow(
         # Step 6: Use NL2SQLAgent with selected method
         agent = NL2SQLAgent(sqlite_path)
 
+        # Only pass question and table_name (not 3 arguments!)
         if method == "query":
-            result, sql_query, explanation = agent.query(question, table_name)
+            output = agent.query(question, table_name)
         elif method == "ask":
-            result, sql_query, explanation = agent.ask(question, table_name)
+            output = agent.ask(question, table_name)
         elif method == "run":
-            result, sql_query, explanation = agent.run(question, table_name)
+            output = agent.run(question, table_name)
         else:
             raise ValueError(f"❌ Invalid method: {method}. Use 'query', 'ask', or 'run'.")
+
+        # Handle return type: single dict or tuple
+        if isinstance(output, tuple):
+            result, sql_query, explanation = output
+        else:
+            result = output
+            sql_query = explanation = None
 
         # Step 7: Return results
         return {
