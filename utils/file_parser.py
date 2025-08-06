@@ -145,15 +145,13 @@ def parse_csv_file(file_path: str) -> pd.DataFrame:
 
 
 def parse_excel_file(file_path: str) -> pd.DataFrame:
-    """Parse Excel files (.xlsx, .xls)"""
+    """Parse Excel files (.xlsx, .xls) with proper engine handling"""
     try:
         ext = Path(file_path).suffix.lower()
 
         if ext == ".xlsx":
-            # Use openpyxl engine for .xlsx
             df = pd.read_excel(file_path, engine="openpyxl")
         elif ext == ".xls":
-            # Use xlrd engine for .xls
             df = pd.read_excel(file_path, engine="xlrd")
         else:
             raise FileParsingError("Unsupported Excel file extension")
@@ -163,29 +161,7 @@ def parse_excel_file(file_path: str) -> pd.DataFrame:
     except Exception as e:
         raise FileParsingError(f"Failed to parse Excel file: {str(e)}")
         
-def parse_excel_file(file_path: str) -> pd.DataFrame:
-    """Parse Excel files (.xlsx, .xls)"""
-    try:
-        # Try to read all sheets and combine if multiple sheets exist
-        excel_file = pd.ExcelFile(file_path)
         
-        if len(excel_file.sheet_names) == 1:
-            df = pd.read_excel(file_path, sheet_name=0)
-        else:
-            # Multiple sheets - combine them with sheet name as identifier
-            dfs = []
-            for sheet_name in excel_file.sheet_names:
-                sheet_df = pd.read_excel(file_path, sheet_name=sheet_name)
-                sheet_df['source_sheet'] = sheet_name
-                dfs.append(sheet_df)
-            df = pd.concat(dfs, ignore_index=True)
-        
-        return df
-        
-    except Exception as e:
-        raise FileParsingError(f"Failed to parse Excel file: {str(e)}")
-
-
 def parse_json_file(file_path: str) -> pd.DataFrame:
     """Parse JSON files"""
     try:
