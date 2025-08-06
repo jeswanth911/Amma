@@ -158,3 +158,12 @@ You are a senior data analyst. Write a valid SQLite SELECT query only.
                 "error": str(e)
             }
             
+# Inside data_engine/sql_agent.py
+
+def convert_to_sqlite(df: pd.DataFrame, db_path: str, table_name: str = "data"):
+    import sqlite3
+    conn = sqlite3.connect(db_path)
+    df.to_sql(table_name, conn, if_exists="replace", index=False)
+    conn.close()
+    return db_path
+    
