@@ -256,3 +256,14 @@ def parse_text_file(file_path: str) -> pd.DataFrame:
         lines = f.readlines()
     return pd.DataFrame({"text": [line.strip() for line in lines if line.strip()]})
     
+def save_uploaded_file(file: UploadFile, destination_folder: str = "uploads") -> str:
+    import os
+
+    os.makedirs(destination_folder, exist_ok=True)
+    file_path = os.path.join(destination_folder, file.filename)
+
+    with open(file_path, "wb") as f:
+        f.write(file.file.read())
+
+    return file_path
+    
