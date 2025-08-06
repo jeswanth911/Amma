@@ -1,6 +1,7 @@
 # sql_agent.py
 
 import os
+import pandas as pd
 import json
 import sqlite3
 import logging
