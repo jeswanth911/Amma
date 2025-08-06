@@ -14,11 +14,7 @@ from utils.logger import logger
 from utils.file_parser import (
     parse_file,
     parse_sql_file,
-    parse_xml_file,
-    parse_hl7_file,
     parse_pdf_file,
-    parse_log_file,
-    parse_eml_file,
     parse_csv_file,
     parse_excel_file,
     parse_json_file,
@@ -239,3 +235,10 @@ def save_dataframe_to_sqlite(df: pd.DataFrame, table_name: str = "data", db_path
     df.to_sql(table_name, conn, if_exists="replace", index=False)
     conn.close()
     return db_path
+
+def clean_data(df: pd.DataFrame) -> pd.DataFrame:
+    for col in df.select_dtypes(include=['object', 'string']).columns:
+        df[col] = df[col].astype(str).str.strip()
+    df.columns = [col.strip().lower().replace(" ", "_") for col in df.columns]
+    return df
+    
