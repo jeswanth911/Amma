@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 from backend.router import router as data_router
 from backend.query_router import router as query_router
 from controller.predictor import predict_router
-from controller.workflow_controller import router as workflow_controller  # ✅ ADD THIS
+from controller.workflow_controller import router as workflow_router  # ✅ ADD THIS
 from utils.logger import logger
 
 # ✅ Ensure required folders exist before app runs
