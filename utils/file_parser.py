@@ -165,3 +165,36 @@ def parse_eml(file_path: str) -> pd.DataFrame:
     ep = eml_parser.EmlParser()
     parsed = ep.decode_email_bytes(raw_email)
     return pd.json_normalize(parsed)
+
+
+# utils/file_parser.py
+
+def parse_sql_file(file_path: str) -> pd.DataFrame:
+    import pandas as pd
+    import sqlite3
+
+    with open(file_path, 'r') as f:
+        sql_script = f.read()
+
+    # Create a temporary in-memory SQLite DB
+    conn = sqlite3.connect(':memory:')
+    cursor = conn.cursor()
+
+    try:
+        cursor.executescript(sql_script)
+        conn.commit()
+
+        # Try to find tables created
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+        tables = cursor.fetchall()
+
+        if not tables:
+            raise ValueError("No tables found in SQL file.")
+
+        # Select the first table
+        table_name = tables[0][0]
+        df = pd.read_sql_query(f"SELECT * FROM {table_name}", conn)
+        return df
+    finally:
+        conn.close()
+        
