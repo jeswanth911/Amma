@@ -8,6 +8,7 @@ from controller.predictor import predict_from_file
 from data_engine.sql_agent import NL2SQLAgent
 from controller.upload_pipeline import process_uploaded_file
 from controller.workflow_manager import run_full_workflow
+from controller.cleaner_controller import clean_file_pipeline
 
 from utils.logger import logger
 from utils.file_parser import save_uploaded_file
