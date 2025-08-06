@@ -1,21 +1,19 @@
 # sql_agent.py
 
 import os
-import pandas as pd
 import json
 import sqlite3
 import logging
 import requests
-from sqlite3 import Error
+import pandas as pd
 from typing import List, Dict
 from dotenv import load_dotenv
+from sqlite3 import Error
 
+# Load API key
 load_dotenv()
-
-# Logger setup
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
-
 
 class NL2SQLAgent:
     def __init__(self, db_path: str, model: str = "mistralai/mistral-7b-instruct:free"):
@@ -23,7 +21,7 @@ class NL2SQLAgent:
         self.model = model
         self.api_key = os.getenv("OPENROUTER_API_KEY")
         if not self.api_key:
-            raise EnvironmentError("❌ OPENROUTER_API_KEY not set in environment variables.")
+            raise EnvironmentError("❌ OPENROUTER_API_KEY not set.")
 
         self.api_url = "https://openrouter.ai/api/v1/chat/completions"
         self.headers = {
@@ -33,71 +31,29 @@ class NL2SQLAgent:
             "X-Title": "MyBAI-SQLAgent"
         }
 
-    def ask(self, question: str, table_name: str):
+    def ask(self, question: str, table_name: str = None):
+        """
+        Entry point: answer a question by generating SQL → executing it → returning results.
+        """
         try:
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
-
-            # Get schema info
-            cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
-            tables = cursor.fetchall()
-            schema_info = ""
-
-            for table in tables:
-                name = table[0]
-                cursor.execute(f"PRAGMA table_info({name});")
-                columns = cursor.fetchall()
-                col_info = ", ".join([f"{col[1]} ({col[2]})" for col in columns])
-                schema_info += f"Table `{name}`: {col_info}\n"
-
-            prompt = f"""
-You are a data analyst assistant. Based on the SQLite database schema below, write an accurate SQL query that answers the user's question.
-
-Schema:
-{schema_info}
-
-User Question: {question}
-
-Return only the SQL query.
-            """
-
-            payload = {
-                "model": self.model,
-                "messages": [
-                    {"role": "system", "content": "You are an expert SQL assistant."},
-                    {"role": "user", "content": prompt}
-                ]
-            }
-
-            response = requests.post(self.api_url, headers=self.headers, data=json.dumps(payload))
-            sql_query = response.json()["choices"][0]["message"]["content"].strip().strip("`")
-
-            # Execute the generated SQL
-            cursor.execute(sql_query)
-            rows = cursor.fetchall()
-            columns = [desc[0] for desc in cursor.description]
-            result = [dict(zip(columns, row)) for row in rows]
-
-            explanation = f"SQL generated based on schema: {sql_query}"
-
+            schema = self.get_schema()
+            prompt = self.generate_prompt(question, schema)
+            sql_query = self.call_llm(prompt)
+            result = self.execute_sql(sql_query)
+            explanation = f"SQL generated: {sql_query}"
             return result, sql_query, explanation
 
-        except Error as e:
-            return [], "", f"SQLite error: {str(e)}"
         except Exception as e:
-            return [], "", f"Failed to process query: {str(e)}"
-        finally:
-            conn.close()
+            return [], "", f"❌ Error: {e}"
 
-    def query(self, question: str, table_name: str):
+    def query(self, question: str, table_name: str = None):
         return self.ask(question, table_name)
 
-    def run(self, question: str, table_name: str):
+    def run(self, question: str, table_name: str = None):
         return self.ask(question, table_name)
-                  
-    
+
     def get_schema(self) -> str:
-        """Extracts the schema from the SQLite DB and returns it as a readable string."""
+        """Extracts schema from SQLite DB and returns readable string."""
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
@@ -105,7 +61,7 @@ Return only the SQL query.
             tables = cursor.fetchall()
 
             if not tables:
-                raise ValueError("❌ No tables found in the database.")
+                raise ValueError("No tables found in DB.")
 
             schema = ""
             for (table_name,) in tables:
@@ -117,13 +73,13 @@ Return only the SQL query.
             return schema.strip()
 
         except Exception as e:
-            logger.error(f"⚠️ Failed to extract schema: {e}")
-            raise RuntimeError(f"Schema extraction failed: {e}")
+            logger.error(f"⚠️ Schema extraction failed: {e}")
+            raise
         finally:
             conn.close()
 
     def generate_prompt(self, question: str, schema: str) -> str:
-        """Generates the prompt for the LLM based on question and DB schema."""
+        """Generates structured prompt for LLM based on question and DB schema."""
         return f"""
 You are a senior data analyst. Write a valid SQLite SELECT query only.
 
@@ -141,7 +97,7 @@ You are a senior data analyst. Write a valid SQLite SELECT query only.
 """
 
     def call_llm(self, prompt: str) -> str:
-        """Sends prompt to OpenRouter and extracts SQL from the response."""
+        """Sends prompt to OpenRouter and extracts SQL from response."""
         payload = {
             "model": self.model,
             "messages": [
@@ -153,60 +109,59 @@ You are a senior data analyst. Write a valid SQLite SELECT query only.
         }
 
         try:
-            logger.info("📤 Sending prompt to OpenRouter API...")
+            logger.info("📤 Sending prompt to OpenRouter...")
             response = requests.post(self.api_url, headers=self.headers, json=payload, timeout=30)
-
-            if response.status_code == 400:
-                raise RuntimeError(f"❌ 400 Bad Request: {response.text}")
             response.raise_for_status()
 
-            result = response.json()
-            content = result["choices"][0]["message"]["content"].strip()
-
+            content = response.json()["choices"][0]["message"]["content"]
             sql_query = self._extract_sql(content)
             logger.info(f"✅ SQL generated: {sql_query}")
             return sql_query
 
-        except requests.exceptions.RequestException as e:
-            logger.error(f"🛑 API Request failed: {e}")
+        except requests.RequestException as e:
+            logger.error(f"🛑 API error: {e}")
             raise RuntimeError(f"LLM API request failed: {e}")
+
         except Exception as e:
-            logger.error(f"🔴 Error parsing LLM response: {e}")
-            raise RuntimeError(f"LLM failed to generate SQL: {e}")
+            logger.error(f"🔴 LLM response error: {e}")
+            raise RuntimeError(f"Failed to parse SQL: {e}")
 
     def _extract_sql(self, content: str) -> str:
         """Extracts raw SQL from LLM response."""
         content = content.strip()
         if content.startswith("```sql"):
             content = content.replace("```sql", "").replace("```", "").strip()
-
         if not content.lower().startswith("select"):
-            raise ValueError("Generated query is not a valid SELECT statement.")
-
+            raise ValueError("Generated query is not a SELECT statement.")
         return content.strip().rstrip(";")
 
     def execute_sql(self, query: str) -> List[Dict]:
-        """Executes SQL against the SQLite DB and returns rows as dictionaries."""
+        """Executes SQL against SQLite DB and returns result rows as dicts."""
         try:
             conn = sqlite3.connect(self.db_path)
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
             cursor.execute(query)
-            results = cursor.fetchall()
-            return [dict(row) for row in results]
+            rows = cursor.fetchall()
+            return [dict(row) for row in rows]
 
         except Exception as e:
             logger.error(f"❌ SQL execution error: {e}")
-            raise RuntimeError(f"Failed to execute SQL: {e}")
+            raise RuntimeError(f"SQL execution failed: {e}")
         finally:
             conn.close()
 
-    
 
- def convert_to_sqlite(df: pd.DataFrame, db_path: str, table_name: str = "data"):
-    import sqlite3
-    conn = sqlite3.connect(db_path)
-    df.to_sql(table_name, conn, if_exists="replace", index=False)
-    conn.close()
-    return db_path
-    
+# ✅ Utility Function (bottom)
+def convert_to_sqlite(df: pd.DataFrame, db_path: str, table_name: str = "data"):
+    """Utility: Convert DataFrame to SQLite."""
+    try:
+        conn = sqlite3.connect(db_path)
+        df.to_sql(table_name, conn, if_exists="replace", index=False)
+        logger.info(f"✅ Data written to table `{table_name}` at {db_path}")
+    except Exception as e:
+        logger.error(f"❌ Failed to convert to SQLite: {e}")
+        raise
+    finally:
+        conn.close()
+        
