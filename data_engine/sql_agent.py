@@ -201,31 +201,9 @@ You are a senior data analyst. Write a valid SQLite SELECT query only.
         finally:
             conn.close()
 
-    def ask(self, question: str) -> Dict:
-        """Main method: from natural language to final SQL result."""
-        try:
-            schema = self.get_schema()
-            prompt = self.generate_prompt(question, schema)
-            sql_query = self.call_llm(prompt)
-            results = self.execute_sql(sql_query)
+    
 
-            return {
-                "status": "success",
-                "question": question,
-                "query": sql_query,
-                "result": results
-            }
-
-        except Exception as e:
-            logger.exception("🛑 Failed to answer question.")
-            return {
-                "status": "error",
-                "error": str(e)
-            }
-            
-# Inside data_engine/sql_agent.py
-
-def convert_to_sqlite(df: pd.DataFrame, db_path: str, table_name: str = "data"):
+ def convert_to_sqlite(df: pd.DataFrame, db_path: str, table_name: str = "data"):
     import sqlite3
     conn = sqlite3.connect(db_path)
     df.to_sql(table_name, conn, if_exists="replace", index=False)
