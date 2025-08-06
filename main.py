@@ -54,6 +54,7 @@ async def log_requests(request: Request, call_next):
 app.include_router(data_router, prefix="/api", tags=["Data Ingestion"])
 app.include_router(query_router, prefix="/api", tags=["Query Engine"])  # Add prefix for clarity
 app.include_router(predict_router, prefix="/api", tags=["Prediction"])
+router.include_router(workflow_router, prefix="/api", tags=["Data Ingestion"])
 
 # ✅ Root health check
 @app.get("/")
