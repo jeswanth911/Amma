@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 from backend.router import router as data_router
 from backend.query_router import router as query_router
 from controller.predictor import predict_router
-from controller.workflow_router import router as workflow_router  # ✅ ADD THIS
+from controller.workflow_controller import router as workflow_controller  # ✅ ADD THIS
 from utils.logger import logger
 
 # ✅ Ensure required folders exist before app runs
@@ -55,7 +55,7 @@ async def log_requests(request: Request, call_next):
 app.include_router(data_router, prefix="/api", tags=["Data Ingestion"])
 app.include_router(query_router, prefix="/api", tags=["Query Engine"])
 app.include_router(predict_router, prefix="/api", tags=["Prediction"])
-app.include_router(workflow_router, prefix="/api", tags=["Data Ingestion"])  # ✅ FIXED
+app.include_router(workflow_controller, prefix="/api", tags=["Data Ingestion"])  # ✅ FIXED
 
 # ✅ Root health check
 @app.get("/")
