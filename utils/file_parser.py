@@ -235,7 +235,7 @@ def parse_eml_file(file_path: str) -> pd.DataFrame:
     except Exception as e:
         raise ValueError(f"Error parsing EML file: {e}")
         
-  def parse_csv_file(file_path: str) -> pd.DataFrame:
+def parse_csv_file(file_path: str) -> pd.DataFrame:
     return pd.read_csv(file_path)
 
 def parse_excel_file(file_path: str) -> pd.DataFrame:
