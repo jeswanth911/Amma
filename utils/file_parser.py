@@ -251,3 +251,8 @@ def parse_eml_file(file_path: str) -> pd.DataFrame:
 def parse_parquet_file(file_path: str) -> pd.DataFrame:
     return pd.read_parquet(file_path)
     
+def parse_text_file(file_path: str) -> pd.DataFrame:
+    with open(file_path, "r", encoding="utf-8") as f:
+        lines = f.readlines()
+    return pd.DataFrame({"text": [line.strip() for line in lines if line.strip()]})
+    
