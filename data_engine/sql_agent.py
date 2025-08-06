@@ -28,18 +28,12 @@ class NL2SQLAgent:
         self.headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
-            "HTTP-Referer": "http://localhost",  # Required by OpenRouter
+            "HTTP-Referer": "http://localhost",
             "X-Title": "MyBAI-SQLAgent"
         }
 
-
-    def ask(self, question: str) -> dict:
-        """Generate SQL from question, execute it, and return results + explanation."""
-        import sqlite3
-        import json
-        import requests
-        from sqlite3 import Error
-
+    def ask(self, question: str, table_name: str) -> tuple:
+        # Your existing logic to run LLM, generate SQL, query DB, and return result, SQL, explanation
         try:
             # ✅ Extract table schema
             conn = sqlite3.connect(self.db_path)
@@ -79,7 +73,7 @@ Return only the SQL query.
             response = requests.post(self.api_url, headers=self.headers, data=json.dumps(payload))
             sql_query = response.json()["choices"][0]["message"]["content"].strip().strip("`")
 
-            # ✅ Execute SQL
+        # ✅ Execute SQL
             cursor.execute(sql_query)
             rows = cursor.fetchall()
             columns = [description[0] for description in cursor.description]
@@ -98,7 +92,16 @@ Return only the SQL query.
 
         finally:
             conn.close()
+        return result, sql_query, explanation
 
+    def query(self, question: str, table_name: str) -> tuple:
+        return self.ask(question, table_name)
+
+    def run(self, question: str, table_name: str) -> tuple:
+        return self.ask(question, table_name)
+        
+        
+        
     def query(self, question: str) -> dict:
         return self.ask(question)
 
