@@ -6,6 +6,7 @@ import json
 import sqlite3
 import logging
 import requests
+from sqlite3 import Error
 from typing import List, Dict
 from dotenv import load_dotenv
 
@@ -14,7 +15,6 @@ load_dotenv()
 # Logger setup
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
-
 
 class NL2SQLAgent:
     def __init__(self, db_path: str, model: str = "mistralai/mistral-7b-instruct:free"):
@@ -33,16 +33,15 @@ class NL2SQLAgent:
         }
 
     def ask(self, question: str, table_name: str) -> tuple:
-        # Your existing logic to run LLM, generate SQL, query DB, and return result, SQL, explanation
         try:
-            # ✅ Extract table schema
+            # ✅ Connect to SQLite and extract schema
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
 
             cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
             tables = cursor.fetchall()
-            schema_info = ""
 
+            schema_info = ""
             for table in tables:
                 table_name = table[0]
                 cursor.execute(f"PRAGMA table_info({table_name});")
@@ -50,7 +49,7 @@ class NL2SQLAgent:
                 cols = ", ".join([f"{col[1]} ({col[2]})" for col in columns])
                 schema_info += f"Table `{table_name}`: {cols}\n"
 
-            # ✅ Prepare prompt for LLM
+            # ✅ Generate SQL using LLM
             prompt = f"""
 You are a data analyst assistant. Based on the SQLite database schema below, write an accurate SQL query that answers the user's question.
 
@@ -59,7 +58,7 @@ Schema:
 
 User Question: {question}
 
-Return only the SQL query.
+Return only the SQL query without explanation or code block.
             """
 
             payload = {
@@ -71,42 +70,36 @@ Return only the SQL query.
             }
 
             response = requests.post(self.api_url, headers=self.headers, data=json.dumps(payload))
+            response.raise_for_status()
+
             sql_query = response.json()["choices"][0]["message"]["content"].strip().strip("`")
 
-        # ✅ Execute SQL
+            # ✅ Execute SQL
             cursor.execute(sql_query)
             rows = cursor.fetchall()
             columns = [description[0] for description in cursor.description]
             result_data = [dict(zip(columns, row)) for row in rows]
 
-            return {
-                "question": question,
-                "sql": sql_query,
-                "results": result_data
-            }
+            # ✅ Explanation (basic version)
+            explanation = f"The question '{question}' was converted into the SQL query: {sql_query}"
+
+            return result_data, sql_query, explanation
 
         except Error as e:
-            return {"error": f"SQLite error: {str(e)}"}
+            raise Exception(f"SQLite error: {str(e)}")
+
         except Exception as e:
-            return {"error": f"Failed to process query: {str(e)}"}
+            raise Exception(f"Failed to process query: {str(e)}")
 
         finally:
-            conn.close()
-        return result, sql_query, explanation
+            if 'conn' in locals():
+                conn.close()
 
     def query(self, question: str, table_name: str) -> tuple:
         return self.ask(question, table_name)
 
     def run(self, question: str, table_name: str) -> tuple:
         return self.ask(question, table_name)
-        
-        
-        
-    def query(self, question: str) -> dict:
-        return self.ask(question)
-
-    def run(self, question: str) -> dict:
-        return self.ask(question)
         
     
     def get_schema(self) -> str:
