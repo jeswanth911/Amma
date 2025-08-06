@@ -275,3 +275,14 @@ def save_uploaded_file(file: UploadFile, destination_folder: str = "uploads") ->
         f.write(file.file.read())
 
     return file_path
+    
+def save_uploaded_file(file: UploadFile, destination_folder: str = "data/uploaded") -> str:
+    os.makedirs(destination_folder, exist_ok=True)
+    file_path = os.path.join(destination_folder, file.filename)
+    
+    with open(file_path, "wb") as f:
+        contents = file.file.read()
+        f.write(contents)
+
+    logger.info(f"[UPLOAD] File saved to: {file_path}")
+    return file_path
