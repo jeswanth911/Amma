@@ -32,6 +32,80 @@ class NL2SQLAgent:
             "X-Title": "MyBAI-SQLAgent"
         }
 
+
+    def ask(self, question: str) -> dict:
+        """Generate SQL from question, execute it, and return results + explanation."""
+        import sqlite3
+        import json
+        import requests
+        from sqlite3 import Error
+
+        try:
+            # ✅ Extract table schema
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+            tables = cursor.fetchall()
+            schema_info = ""
+
+            for table in tables:
+                table_name = table[0]
+                cursor.execute(f"PRAGMA table_info({table_name});")
+                columns = cursor.fetchall()
+                cols = ", ".join([f"{col[1]} ({col[2]})" for col in columns])
+                schema_info += f"Table `{table_name}`: {cols}\n"
+
+            # ✅ Prepare prompt for LLM
+            prompt = f"""
+You are a data analyst assistant. Based on the SQLite database schema below, write an accurate SQL query that answers the user's question.
+
+Schema:
+{schema_info}
+
+User Question: {question}
+
+Return only the SQL query.
+            """
+
+            payload = {
+                "model": self.model,
+                "messages": [
+                    {"role": "system", "content": "You are an expert SQL assistant."},
+                    {"role": "user", "content": prompt}
+                ]
+            }
+
+            response = requests.post(self.api_url, headers=self.headers, data=json.dumps(payload))
+            sql_query = response.json()["choices"][0]["message"]["content"].strip().strip("`")
+
+            # ✅ Execute SQL
+            cursor.execute(sql_query)
+            rows = cursor.fetchall()
+            columns = [description[0] for description in cursor.description]
+            result_data = [dict(zip(columns, row)) for row in rows]
+
+            return {
+                "question": question,
+                "sql": sql_query,
+                "results": result_data
+            }
+
+        except Error as e:
+            return {"error": f"SQLite error: {str(e)}"}
+        except Exception as e:
+            return {"error": f"Failed to process query: {str(e)}"}
+
+        finally:
+            conn.close()
+
+    def query(self, question: str) -> dict:
+        return self.ask(question)
+
+    def run(self, question: str) -> dict:
+        return self.ask(question)
+        
+    
     def get_schema(self) -> str:
         """Extracts the schema from the SQLite DB and returns it as a readable string."""
         try:
