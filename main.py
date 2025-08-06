@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 from backend.router import router as data_router
 from backend.query_router import router as query_router
 from controller.predictor import predict_router
+from controller.workflow_router import router as workflow_router  # ✅ ADD THIS
 from utils.logger import logger
 
 # ✅ Ensure required folders exist before app runs
@@ -17,7 +18,7 @@ required_folders = [
 for folder in required_folders:
     os.makedirs(folder, exist_ok=True)
 
-# ✅ FastAPI App Initialization (ONLY ONCE)
+# ✅ FastAPI App Initialization
 app = FastAPI(
     title="MyBAI - AI Data Agent",
     description="Upload files → Clean → Analyze → Convert to SQLite → Ask questions in natural language",
@@ -27,7 +28,7 @@ app = FastAPI(
 # ✅ CORS Middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Update to your frontend domain in prod
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -50,11 +51,11 @@ async def log_requests(request: Request, call_next):
     logger.info(f"Response status: {response.status_code}")
     return response
 
-# ✅ Mount Routers (no duplicates!)
+# ✅ Mount Routers
 app.include_router(data_router, prefix="/api", tags=["Data Ingestion"])
-app.include_router(query_router, prefix="/api", tags=["Query Engine"])  # Add prefix for clarity
+app.include_router(query_router, prefix="/api", tags=["Query Engine"])
 app.include_router(predict_router, prefix="/api", tags=["Prediction"])
-router.include_router(workflow_router, prefix="/api", tags=["Data Ingestion"])
+app.include_router(workflow_router, prefix="/api", tags=["Data Ingestion"])  # ✅ FIXED
 
 # ✅ Root health check
 @app.get("/")
