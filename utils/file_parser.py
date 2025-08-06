@@ -95,6 +95,13 @@ def parse_file(file_path: str) -> pd.DataFrame:
     except Exception as e:
         logger.error(f"❌ Failed to parse {file_path}: {str(e)}")
         return pd.DataFrame()
+if df is not None:
+    print(f"[DEBUG] Parsed DataFrame shape: {df.shape}, columns: {df.columns.tolist()}")
+else:
+    print("[DEBUG] parse_file() returned None")
+    
+
+
 
 # Format-specific parsers below ⬇️
 def parse_csv(file_path: str) -> pd.DataFrame:
