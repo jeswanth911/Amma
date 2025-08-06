@@ -32,10 +32,7 @@ def parse_json_file(file_path: str) -> pd.DataFrame:
 def parse_parquet_file(file_path: str) -> pd.DataFrame:
     return pd.read_parquet(file_path)
 
-def parse_txt_file(file_path: str) -> pd.DataFrame:
-    with open(file_path, 'r') as f:
-        lines = f.readlines()
-    return pd.DataFrame({'text': [line.strip() for line in lines]})
+
 
 def parse_xml_file(file_path: str) -> pd.DataFrame:
     tree = ET.parse(file_path)
@@ -177,11 +174,6 @@ def parse_parquet(file_path: str) -> pd.DataFrame:
         raise ImportError("pyarrow is required for .parquet files")
     return pd.read_parquet(file_path)
 
-def parse_txt(file_path: str) -> pd.DataFrame:
-    with open(file_path, "r", encoding="utf-8") as f:
-        lines = f.readlines()
-    return pd.DataFrame({"line": [line.strip() for line in lines if line.strip()]})
-
 def parse_xml(file_path: str) -> pd.DataFrame:
     tree = ET.parse(file_path)
     root = tree.getroot()
@@ -264,4 +256,14 @@ def parse_sql_file(file_path: str) -> pd.DataFrame:
         return df
     finally:
         conn.close()
+        
+def parse_text_file(file_path: str) -> pd.DataFrame:
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+        data = [line.strip().split(",") for line in lines if line.strip()]
+        df = pd.DataFrame(data[1:], columns=data[0])  # assuming first row = headers
+        return df
+    except Exception as e:
+        raise ValueError(f"Error parsing TXT file: {e}")
         
