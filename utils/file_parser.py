@@ -247,3 +247,7 @@ def parse_json_file(file_path: str) -> pd.DataFrame:
 def parse_eml_file(file_path: str) -> pd.DataFrame:
     # Dummy fallback parser if not implemented
     return pd.DataFrame({"message": ["EML parsing not implemented"]})      
+
+def parse_parquet_file(file_path: str) -> pd.DataFrame:
+    return pd.read_parquet(file_path)
+    
