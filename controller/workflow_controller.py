@@ -1,51 +1,62 @@
-import os
+
 from utils.logger import logger
-from utils.file_parser import parse_file
+from data_engine.sql_agent import convert_to_sqlite
+from fastapi import APIRouter, UploadFile, File, HTTPException
 from data_engine.cleaner import clean_data
 from data_engine.analyzer import analyze_data
-from data_engine.sql_agent import convert_to_sqlite
+from data_engine.sql_agent import NL2SQLAgent
+from utils.file_parser import parse_file
+from pathlib import Path
+import shutil
+import os
+import uuid
+
+router = APIRouter()
 
 
-def run_full_workflow(file_path: str) -> dict:
-    """
-    Run the full data pipeline:
-    1. Clean the uploaded file
-    2. Analyze the cleaned data
-    3. Convert to SQLite DB
-
-    Args:
-        file_path (str): Path to the uploaded file
-
-    Returns:
-        dict: JSON-compatible dictionary with status, analysis summary, and db path
-    """
+@router.post("/run-workflow/")
+async def run_workflow(file: UploadFile = File(...)):
     try:
-        logger.info(f"Starting full workflow for file: {file_path}")
+        # Save uploaded file to a temp location
+        temp_dir = "data/uploads"
+        os.makedirs(temp_dir, exist_ok=True)
+        temp_filename = f"{uuid.uuid4().hex}_{file.filename}"
+        file_path = os.path.join(temp_dir, temp_filename)
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
 
-        # Step 1: Clean the file
-        cleaned_data, cleaned_file_path = clean_data(file_path)
-        logger.info(f"File cleaned and saved at: {cleaned_file_path}")
+        # Parse the file
+        df = parse_file(file_path)
 
-        # Step 2: Analyze the cleaned data
-        analysis_summary = analyze_data(cleaned_data)
-        logger.info("Analysis complete")
+        # Clean the data
+        cleaned_df, cleaning_report = clean_data(df)
 
-        # Step 3: Convert to SQLite
-        db_path = convert_to_sqlite(cleaned_data, cleaned_file_path)
-        logger.info(f"SQLite DB created at: {db_path}")
+        # Analyze the data
+        analysis_summary = analyze_data(cleaned_df)
+
+        # Save cleaned data to SQLite
+        sqlite_path = file_path.replace(".", "_cleaned.").rsplit("/", 1)[-1].replace(" ", "_") + ".db"
+        sqlite_path = os.path.join("data/sqlite", sqlite_path)
+        os.makedirs("data/sqlite", exist_ok=True)
+        table_name = Path(file.filename).stem.replace(" ", "_")
+        cleaned_df.to_sql(table_name, f"sqlite:///{sqlite_path}", index=False, if_exists="replace")
+
+        # Use NL2SQLAgent to ask a sample question
+        agent = NL2SQLAgent(sqlite_path)
+        sample_question = "Show top 5 rows"
+        result, sql_query, explanation = agent.query(sample_question, table_name)
 
         return {
             "status": "success",
+            "message": "File processed. You can now ask questions.",
             "analysis_summary": analysis_summary,
-            "db_path": db_path
+            "sqlite_path": sqlite_path,
+            "sample_question": sample_question,
+            "sample_answer": result,
+            "sql_used": sql_query,
+            "explanation": explanation
         }
 
     except Exception as e:
-        logger.error(f"Workflow failed: {str(e)}", exc_info=True)
-        return {
-            "status": "error",
-            "message": str(e),
-            "analysis_summary": {},
-            "db_path": ""
-        }
-      
+        raise HTTPException(status_code=500, detail=f"Workflow failed: {str(e)}")
+        
