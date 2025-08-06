@@ -4,12 +4,79 @@ import json
 import shutil
 import mimetypes
 import xml.etree.ElementTree as ET
-
 import pandas as pd
 import eml_parser
-
 from fastapi import UploadFile
 from utils.logger import logger  # Ensure logger is configured
+import pandas as pd
+import os
+import json
+import xml.etree.ElementTree as ET
+import csv
+import io
+import pdfplumber
+import pyarrow.parquet as pq
+from typing import Union
+
+def parse_csv_file(file_path: str) -> pd.DataFrame:
+    return pd.read_csv(file_path)
+
+def parse_excel_file(file_path: str) -> pd.DataFrame:
+    return pd.read_excel(file_path)
+
+def parse_json_file(file_path: str) -> pd.DataFrame:
+    with open(file_path, 'r') as f:
+        data = json.load(f)
+    return pd.json_normalize(data)
+
+def parse_parquet_file(file_path: str) -> pd.DataFrame:
+    return pd.read_parquet(file_path)
+
+def parse_txt_file(file_path: str) -> pd.DataFrame:
+    with open(file_path, 'r') as f:
+        lines = f.readlines()
+    return pd.DataFrame({'text': [line.strip() for line in lines]})
+
+def parse_xml_file(file_path: str) -> pd.DataFrame:
+    tree = ET.parse(file_path)
+    root = tree.getroot()
+    all_data = []
+    for child in root:
+        row_data = {subchild.tag: subchild.text for subchild in child}
+        all_data.append(row_data)
+    return pd.DataFrame(all_data)
+
+def parse_pdf_file(file_path: str) -> pd.DataFrame:
+    all_text = ""
+    with pdfplumber.open(file_path) as pdf:
+        for page in pdf.pages:
+            all_text += page.extract_text() + "\n"
+    return pd.DataFrame({'text': [line.strip() for line in all_text.strip().split('\n') if line.strip()]})
+
+# Add a generic file parser
+def parse_file(file_path: str, extension: str) -> pd.DataFrame:
+    extension = extension.lower()
+    if extension == '.csv':
+        return parse_csv_file(file_path)
+    elif extension in ['.xls', '.xlsx']:
+        return parse_excel_file(file_path)
+    elif extension == '.json':
+        return parse_json_file(file_path)
+    elif extension == '.parquet':
+        return parse_parquet_file(file_path)
+    elif extension == '.txt':
+        return parse_txt_file(file_path)
+    elif extension == '.xml':
+        return parse_xml_file(file_path)
+    elif extension == '.pdf':
+        return parse_pdf_file(file_path)
+    else:
+        raise ValueError(f"Unsupported file type: {extension}")
+        
+
+
+
+
 
 # Optional dependencies
 try:
